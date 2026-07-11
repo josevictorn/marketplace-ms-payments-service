@@ -148,11 +148,30 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
 
       await this.channel.assertExchange(exchange, 'topic', { durable: true });
 
+      const dlxExchange = `${exchange}.dlx`;
+      await this.channel.assertExchange(dlxExchange, 'topic', {
+        durable: true,
+      });
+
+      const dlqName = `${queueName}.dlq`;
+      await this.channel.assertQueue(dlqName, {
+        durable: true,
+        arguments: {
+          'x-message-ttl': 604800000, // 7 dias para analise
+        },
+      });
+
+      const routingKeyDlq = `${routingKey}.dead`;
+
+      await this.channel.bindQueue(dlqName, dlxExchange, routingKeyDlq);
+
       const queue = await this.channel.assertQueue(queueName, {
         durable: true,
         arguments: {
           'x-message-ttl': 86400000, // Set message TTL to 24 hours
           'x-max-length': 1000, // Set maximum queue length to 1000 messages
+          'x-dead-letter-exchange': dlxExchange, // Set dead-letter exchange
+          'x-dead-letter-routing-key': routingKeyDlq, // Set dead-letter routing key
         },
       });
 
