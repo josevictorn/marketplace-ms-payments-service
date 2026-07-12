@@ -3,6 +3,7 @@ import { PaymentQueueService } from '../payment-queue/payment-queue.service';
 import type { PaymentOrderMessage } from '../payments-queue.interface';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { PaymentsService } from '../../payments/payments.service';
+import { PaymentResultPublisherService } from '../payment-result/payment-result-publisher.service';
 
 export interface ConsumerMetrics {
   totalProcessed: number; // Total de mensagens processadas
@@ -46,6 +47,7 @@ export class PaymentConsumerService implements OnModuleInit {
     private readonly paymentQueueService: PaymentQueueService,
     private readonly rabbitMQService: RabbitmqService,
     private readonly paymentsService: PaymentsService,
+    private readonly paymentResultPublisherService: PaymentResultPublisherService,
   ) {}
 
   async onModuleInit() {
@@ -94,9 +96,26 @@ export class PaymentConsumerService implements OnModuleInit {
         throw new Error('Invalid payment message');
       }
 
-      await this.paymentsService.processPayment(message);
+      const payment = await this.paymentsService.processPayment(message);
 
-      this.logger.log('✅ Payment order received and validated');
+      try {
+        await this.paymentResultPublisherService.publishPaymentResult({
+          orderId: payment.orderId,
+          status: payment.status as 'approved' | 'rejected',
+          transactionId: payment.transactionId ?? '',
+          rejectionReason: payment.rejectionReason,
+          processedAt: payment.processedAt
+            ? payment.processedAt.toISOString()
+            : new Date().toISOString(),
+        });
+      } catch (pubError) {
+        this.logger.error(
+          `❌ Failed to publish payment result for order ${message.orderId}, but payment was processed successfully.`,
+          pubError,
+        );
+      }
+
+      this.logger.log('✅ Payment order received, validated and processed');
       this.updateMetrics(true, startTime);
     } catch (error) {
       this.updateMetrics(false, startTime);

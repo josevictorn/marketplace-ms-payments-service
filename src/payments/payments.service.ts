@@ -15,7 +15,7 @@ export class PaymentsService {
     private readonly fakePaymentGatewayService: FakePaymentGatewayService,
   ) {}
 
-  async processPayment(message: PaymentOrderMessage): Promise<void> {
+  async processPayment(message: PaymentOrderMessage): Promise<Payment> {
     const { orderId, userId, amount, paymentMethod } = message;
 
     // Check if a payment for this orderId already exists to ensure idempotency
@@ -25,7 +25,7 @@ export class PaymentsService {
       this.logger.warn(
         `Payment for orderId ${orderId} has already been processed.`,
       );
-      return;
+      return payment;
     }
 
     if (!payment) {
@@ -64,6 +64,8 @@ export class PaymentsService {
       this.logger.log(
         `Payment processing finished: orderId=${orderId}, status=${payment.status}, transactionId=${payment.transactionId}`,
       );
+
+      return payment;
     } catch (error) {
       this.logger.error(
         `Error processing payment for orderId ${orderId}`,
