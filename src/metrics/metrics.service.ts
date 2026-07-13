@@ -6,6 +6,10 @@ export class MetricsService {
   private readonly httpRequestsTotal: promClient.Counter<string>;
   private readonly httpRequestDurationSeconds: promClient.Histogram<string>;
 
+  readonly paymentsProcessedTotal: promClient.Counter<string>;
+  readonly paymentsApprovedTotal: promClient.Counter<string>;
+  readonly paymentsRejectedTotal: promClient.Counter<string>;
+
   constructor() {
     promClient.collectDefaultMetrics();
 
@@ -20,6 +24,22 @@ export class MetricsService {
       help: 'Duration of HTTP requests in seconds',
       labelNames: ['method', 'route', 'status_code'],
       buckets: [0.1, 0.3, 0.5, 1, 1.5, 2, 5, 10],
+    });
+
+    this.paymentsProcessedTotal = new promClient.Counter({
+      name: 'payments_processed_total',
+      help: 'Total number of payments processed',
+    });
+
+    this.paymentsApprovedTotal = new promClient.Counter({
+      name: 'payments_approved_total',
+      help: 'Total number of approved payments',
+    });
+
+    this.paymentsRejectedTotal = new promClient.Counter({
+      name: 'payments_rejected_total',
+      help: 'Total number of rejected payments',
+      labelNames: ['reason'],
     });
   }
 
